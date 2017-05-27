@@ -36,6 +36,7 @@ client.on('connect', function(connection) {
       }
       console.log('Sending')
       connection.sendUTF(JSON.stringify(message));
+      // 
       setTimeout(sendNumber, 1000);
     }
   }
@@ -47,13 +48,13 @@ const connect_url = `https://slack.com/api/rtm.connect?token=${bot_token}`
 unirest.get(connect_url)
   .send()
   .end(response => {
-  if (response.ok) {
-    console.log("Got a response: ", response.body)
-    const ws_url = response.body.url
-    client.connect(ws_url);
-  } else {
-    console.log("Got an error: ", response.error)
-  }
+    if (response.ok) {
+      console.log("Got a response: ", response.body)
+      const ws_url = response.body.url
+      client.connect(ws_url);
+    } else {
+      console.log("Got an error: ", response.error)
+    }
   })
 
 
