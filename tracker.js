@@ -1,5 +1,6 @@
- const unirest = require('unirest');
- const assert = require('assert');
+#!/usr/bin/env node
+const unirest = require('unirest');
+const assert = require('assert');
 
 
 const URL = 'https://finance.yahoo.com/webservice/v1/symbols/allcurrencies/quote?format=json'
@@ -25,10 +26,14 @@ unirest.get(URL)
   }
   })
 
-const bot_token = process.env('BOT_TOKEN')
 
 
-const WebSocket = require('ws');
+
+
+
+
+
+
 
 
 

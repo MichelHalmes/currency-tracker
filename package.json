@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "request": "^2.81.0",
-    "unirest": "^0.5.1"
+    "unirest": "^0.5.1",
+    "websocket": "^1.0.24"
   }
 }
