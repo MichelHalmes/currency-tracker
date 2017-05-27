@@ -6,43 +6,61 @@ import {client as WebSocketClient} from 'websocket' ;
 
 class SlackClient {
   constructor() {
-    this.connection
-    this.client = new WebSocketClient()
-    this.setUpClient()
-    this.initialClientConnect()
-
-    
+    this._connectionResolve = undefined
+    this._connectionPromise = this._getConnectionPromise()
+    this._client = new WebSocketClient()
+    this._setUpClient()
+    this._initialClientConnect()
   }
 
-  setUpClient() {
-    let self = this;
-    self.client.on('connect', connection => {
-      console.log('WebSocket Client Connected')
-      connection.on('message', self.handleConnectionMessage.bind(self))
-      connection.on('error', error => { console.log("Connection Error: " + error.toString()) })
-      connection.on('close', (code, description) => { console.log('Connection Closed', code, description) }) 
+  _getConnectionPromise() {
+    return new Promise((resolve, reject) => {
+      this._connectionResolve = resolve
     })
-    self.client.on('connectFailed', error => { console.log('Connect Error: ' + error.toString()) })
   }
-  
-  handleConnectionMessage(message) {
 
+  _setUpClient() {
+    let self = this;
+    self._client.on('connect', connection => {
+      console.log('WebSocket Client Connected')
+      connection.on('message', self._handleConnectionMessage.bind(self))
+      connection.on('error', error => { console.log("Connection Error: " + error.toString()) })
+      connection.on('close', (code, description) => { console.log('Connection Closed', code, description) })
+      self._connectionResolve(connection)
+    })
+    self._client.on('connectFailed', error => { console.log('Connect Error: ' + error.toString()) })
+  }
+
+  _handleConnectionMessage(message) {
     let data = JSON.parse(message.utf8Data)
     if (data.type == 'reconnect_url') {
       console.log('Reconnecting')
-      this.client.connect(data.url)
+      this._connectionPromise = this._getConnectionPromise()
+      this._client.connect(data.url)
     } else {
       console.log("Received: '" + message.utf8Data + "'");
     }
-
   }
 
-  initialClientConnect() {
+  _initialClientConnect() {
     let self = this;
     rp(`https://slack.com/api/rtm.connect?token=${process.env.BOT_TOKEN}`, {json: true})
       .then(res => {
-        self.client.connect(res.url)
+        self._client.connect(res.url)
       })
+  }
+
+  sendSlackMessage(text) {
+    let message = {
+        id: 1, type: "message", channel: "D5J58D804", text     
+    }
+    console.log('Sending')
+    this._connectionPromise
+      .then(connection => {
+        console.log('sending go!')
+        connection.sendUTF(JSON.stringify(message))
+      })
+
   }
 
 
