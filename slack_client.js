@@ -11,6 +11,7 @@ class SlackClient {
     this._client = new WebSocketClient()
     this._setUpClient()
     this._initialClientConnect()
+    this._sendPingMessages()
   }
 
   _getConnectionPromise() {
@@ -21,14 +22,15 @@ class SlackClient {
 
   _setUpClient() {
     let self = this;
+    self._client.on('connectFailed', error => { console.log('Connect Error: ' + error.toString()) })
     self._client.on('connect', connection => {
       console.log('WebSocket Client Connected')
       connection.on('message', self._handleConnectionMessage.bind(self))
       connection.on('error', error => { console.log("Connection Error: " + error.toString()) })
       connection.on('close', (code, description) => { console.log('Connection Closed', code, description) })
       self._connectionResolve(connection)
+
     })
-    self._client.on('connectFailed', error => { console.log('Connect Error: ' + error.toString()) })
   }
 
   _handleConnectionMessage(message) {
@@ -48,6 +50,19 @@ class SlackClient {
       .then(res => {
         self._client.connect(res.url)
       })
+  }
+
+  _sendPingMessages() {
+    let self = this
+    let message = {id: Math.round(Math.random() * 0xFFFFFF), type: "ping"}
+    console.log('Ping')
+    self._connectionPromise
+      .then(connection => {
+        console.log('ping go!')
+        connection.sendUTF(JSON.stringify(message))
+        setTimeout(self._sendPingMessages.bind(self), 500);
+      })
+
   }
 
   sendSlackMessage(text) {
