@@ -1,5 +1,3 @@
-
-import unirest from 'unirest'
 import rp from 'request-promise'
 import {client as WebSocketClient} from 'websocket'
 
