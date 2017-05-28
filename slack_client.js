@@ -1,17 +1,20 @@
 
-import unirest from 'unirest';
-import rp from 'request-promise';
-import {client as WebSocketClient} from 'websocket' ;
+import unirest from 'unirest'
+import rp from 'request-promise'
+import {client as WebSocketClient} from 'websocket'
 
 
 class SlackClient {
   constructor() {
+    console.log('init')
     this._connectionResolve = undefined
     this._connectionPromise = this._getConnectionPromise()
     this._client = new WebSocketClient()
+    this._next_msg_id = 0
+    this._messageResolvers = {}
     this._setUpClient()
     this._initialClientConnect()
-    this._sendPingMessages()
+    // this._sendPingMessages() // Not really useful...
   }
 
   _getConnectionPromise() {
@@ -29,7 +32,6 @@ class SlackClient {
       connection.on('error', error => { console.log("Connection Error: " + error.toString()) })
       connection.on('close', (code, description) => { console.log('Connection Closed', code, description) })
       self._connectionResolve(connection)
-
     })
   }
 
@@ -40,7 +42,7 @@ class SlackClient {
       this._connectionPromise = this._getConnectionPromise()
       this._client.connect(data.url)
     } else {
-      console.log("Received: '" + message.utf8Data + "'");
+      console.log("Received: '" + message.utf8Data + "'")
     }
   }
 
@@ -75,7 +77,14 @@ class SlackClient {
         console.log('sending go!')
         connection.sendUTF(JSON.stringify(message))
       })
+  }
 
+  close() {
+    this._connectionPromise
+      .then(connection => {
+        console.log('sending close!')
+        connection.close()
+      })
   }
 
 

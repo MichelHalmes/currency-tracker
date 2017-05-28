@@ -2,7 +2,6 @@ import SlackClient from './slack_client'
 import rp from 'request-promise'
 import assert from 'assert'
 
-let slack = new SlackClient()
 
 const FINANCE_URL = 'https://finance.yahoo.com/webservice/v1/symbols/allcurrencies/quote?format=json'
 rp(FINANCE_URL, {json: true})
@@ -24,5 +23,6 @@ rp(FINANCE_URL, {json: true})
   .then(eur_zar => {
     let slack = new SlackClient()
     slack.sendSlackMessage(`Current rate is ${eur_zar.toFixed(2)} ZAR/EUR`)
+    slack.close()
 
   })
