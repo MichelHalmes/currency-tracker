@@ -5,14 +5,16 @@ import {client as WebSocketClient} from 'websocket'
 class SlackClient {
   constructor() {
     console.log('init')
+    this._closing = false
+    this._closed = false
     this._connectionResolve = undefined
     this._connectionPromise = this._getConnectionPromise()
     this._client = new WebSocketClient()
-    this._next_msg_id = 0
+    this._msg_id = 0
     this._messageResolvers = {}
     this._setUpClient()
     this._initialClientConnect()
-    // this._sendPingMessages() // Not really useful...
+    this._sendPingMessages() // Not really useful...
   }
 
   _getConnectionPromise() {
@@ -35,12 +37,27 @@ class SlackClient {
 
   _handleConnectionMessage(message) {
     let data = JSON.parse(message.utf8Data)
-    if (data.type == 'reconnect_url') {
-      console.log('Reconnecting')
-      this._connectionPromise = this._getConnectionPromise()
-      this._client.connect(data.url)
-    } else {
-      console.log("Received: '" + message.utf8Data + "'")
+    switch(data.type) {
+      case 'reconnect_url':
+        if (!this._closed) {
+          console.log('Reconnecting')
+          this._connectionPromise = this._getConnectionPromise()
+          this._client.connect(data.url)
+        }
+        break
+      case 'message':
+        if (data.reply_to) {
+          this._resolveMessage(data.reply_to)
+        }
+        break
+      case 'pong':
+        this._resolveMessage(data.reply_to)
+        break
+      case 'hello':
+      case 'presence_change':
+        break // Do nothing
+      default:
+        console.log("Received: '" + message.utf8Data + "'")
     }
   }
 
@@ -52,36 +69,60 @@ class SlackClient {
       })
   }
 
-  _sendPingMessages() {
-    let self = this
-    let message = {id: Math.round(Math.random() * 0xFFFFFF), type: "ping"}
-    console.log('Ping')
-    self._connectionPromise
-      .then(connection => {
-        console.log('ping go!')
-        connection.sendUTF(JSON.stringify(message))
-        setTimeout(self._sendPingMessages.bind(self), 500);
-      })
-
-  }
-
-  sendSlackMessage(text) {
-    let message = {
-        id: 1, type: "message", channel: "D5J58D804", text     
+  _sendMessage(message) {
+    if (this._closing) {
+      return Promise.resolve(false)
     }
-    console.log('Sending')
-    this._connectionPromise
+
+    message.id = this._msg_id++
+    let promise = new Promise((resolve, reject) => {
+      this._messageResolvers[message.id] = {resolve}
+    })
+    this._messageResolvers[message.id].promise = promise
+    setTimeout(this._resolveMessage.bind(this, message.id, false), 4000) 
+    console.log('Sending', message)
+    return this._connectionPromise
       .then(connection => {
         console.log('sending go!')
         connection.sendUTF(JSON.stringify(message))
+        return promise
+      })
+      .then(ok => {
+        console.log('resolved', message.id, ok)
+        return ok
       })
   }
 
+  _resolveMessage(id, ok=true) {
+    this._messageResolvers[id].resolve(ok)
+  }
+
+  _sendPingMessages() {
+    let message = {type: "ping"}
+    this._sendMessage(message)
+    setTimeout(this._sendPingMessages.bind(this), 5000);
+  }
+
+  sendSlackMessage(text) {
+    let message = {type: "message", channel: "D5J58D804", text}
+    this._sendMessage(message)
+  }
+
   close() {
-    this._connectionPromise
+    this._closing = true
+    console.log('close >>>>>>>>>>>>', this._messageResolvers)
+    let promises = Object.keys(this._messageResolvers).map(k => 
+      this._messageResolvers[k].promise
+    )
+    console.log(promises)
+    Promise.all(promises)
+      .then(blah => {
+        return this._connectionPromise
+      })
       .then(connection => {
         console.log('sending close!')
         connection.close()
+        this._closed = true
       })
   }
 
