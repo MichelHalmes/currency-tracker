@@ -1,7 +1,7 @@
 import SlackClient from './slack_client'
 import rp from 'request-promise'
 import assert from 'assert'
-import XMLparser from 'xml-parser'
+import htmlparser from 'htmlparser2'
 
 
 
@@ -40,14 +40,50 @@ import XMLparser from 'xml-parser'
   console.log(request_url)
   var otter_p = rp(request_url, {json: true})
     .then(html_text => {
-      console.log("Downloaded HTML:", html_text.substr(1,10000))
-      const HTML_HEADER = '<!doctype html>'
-      const XML_HEADER = '<?xml version="1.0" encoding="utf-8"?>'
-      html_text = html_text.replace(HTML_HEADER, XML_HEADER)
+      console.log("Downloaded HTML:", html_text.substr(1,1000))
+
+      return new Promise((resolve, reject) => {
+        var handler = new htmlparser.DomHandler((error, dom) => {
+            console.log("Parsed DOM!")
+            error ? reject(false) : resolve(dom)
+        }, {normalizeWhitespace: true})
+        var parser = new htmlparser.Parser(handler);
+        parser.write(html_text);
+        parser.end();
+      })
+    })
+    .then(dom => {
       
-      var parsedXML = XMLparser(html_text);
-      parsedXML = parsedXML.root.children[0]
-      console.log(parsedXML)
+      var availability_dom = dom
+          .filter(e => e.name == 'html')[0]
+          .children
+          .filter(e => e.name == 'body')[0]
+          .children
+          .filter(e => e.name == 'main')[0]
+          .children
+          .filter(e => e.name == 'div')[0]
+          .children
+          .filter(e => e.name == 'div')[0]
+          .children
+          .filter(e => e.name == 'div')[0]
+          .children
+          .filter(e => e.name == 'div')[0]
+          .children
+          .filter(e => e.name == 'section')[1]
+          .children
+                
+      console.log(availability_dom)
+      var dates = availability_dom
+          .filter(e => e.name == 'form' && e.attribs.id == 'fromToAvailabilityCheck')[0]
+          .children
+          .filter(e => e.name == 'fieldset')[0]
+          .children
+          .filter(e => e.name == 'select' && e.attribs.id == 'from_date')[0]
+          .children
+          .filter(e => e.name == 'option')
+          .map(e => e.attribs.value)
+          
+      console.log(dates)
     })
   
   
