@@ -108,8 +108,8 @@ class SlackClient {
     setTimeout(this._sendPingMessages.bind(this), 5000)
   }
 
-  sendSlackMessage(text) {
-    let message = {type: "message", channel: "D5J58D804", text}
+  sendSlackMessage(text, channel) {
+    let message = {type: "message", channel, text}
     this._sendMessage(message)
   }
 
