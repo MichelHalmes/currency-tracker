@@ -4,7 +4,6 @@ import {client as WebSocketClient} from 'websocket'
 
 class SlackClient {
   constructor() {
-    console.log('init')
     this._closing = false
     this._closed = false
     this._connectionResolve = undefined
@@ -14,7 +13,7 @@ class SlackClient {
     this._messageResolvers = {}
     this._setUpClient()
     this._initialClientConnect()
-    this._sendPingMessages() // Not really useful...
+    //this._sendPingMessages() // Not really useful...
   }
 
   _getConnectionPromise() {
@@ -28,20 +27,21 @@ class SlackClient {
     self._client.on('connectFailed', error => { console.log('Connect Error: ' + error.toString()) })
     self._client.on('connect', connection => {
       console.log('WebSocket Client Connected')
-      connection.on('message', self._handleConnectionMessage.bind(self))
+      connection.on('message', self._handleConnectionMessage.bind(self, connection))
       connection.on('error', error => { console.log("Connection Error: " + error.toString()) })
-      connection.on('close', (code, description) => { console.log('Connection Closed', code, description) })
+      connection.on('close', (code, description) => { console.log('Connection Closed:', description) })
       self._connectionResolve(connection)
     })
   }
 
-  _handleConnectionMessage(message) {
+  _handleConnectionMessage(conn, message) {
     let data = JSON.parse(message.utf8Data)
     switch(data.type) {
       case 'reconnect_url':
         if (!this._closed) {
-          console.log('Reconnecting')
+          console.log('Reconnecting...')
           this._connectionPromise = this._getConnectionPromise()
+          conn.close()
           this._client.connect(data.url)
         }
         break
@@ -65,6 +65,9 @@ class SlackClient {
     let self = this;
     rp(`https://slack.com/api/rtm.connect?token=${process.env.BOT_TOKEN}`, {json: true})
       .then(res => {
+        if (!res.ok) {
+          throw Error("Could not connect: " + res.error) 
+        }
         self._client.connect(res.url)
       })
   }
@@ -79,28 +82,30 @@ class SlackClient {
       this._messageResolvers[message.id] = {resolve}
     })
     this._messageResolvers[message.id].promise = promise
-    setTimeout(this._resolveMessage.bind(this, message.id, false), 4000) 
+    setTimeout(this._resolveMessage.bind(this, message.id, false), 5000) 
     console.log('Sending', message)
     return this._connectionPromise
       .then(connection => {
-        console.log('sending go!')
+        console.log('\tConnection for:', message.id)
         connection.sendUTF(JSON.stringify(message))
         return promise
       })
       .then(ok => {
-        console.log('resolved', message.id, ok)
+        console.log('\tResolved:', message.id, ok)
         return ok
       })
   }
 
   _resolveMessage(id, ok=true) {
-    this._messageResolvers[id].resolve(ok)
+    if (this._messageResolvers[id]){
+      this._messageResolvers[id].resolve(ok)
+    }
   }
 
   _sendPingMessages() {
     let message = {type: "ping"}
     this._sendMessage(message)
-    setTimeout(this._sendPingMessages.bind(this), 5000);
+    setTimeout(this._sendPingMessages.bind(this), 5000)
   }
 
   sendSlackMessage(text) {
@@ -110,19 +115,20 @@ class SlackClient {
 
   close() {
     this._closing = true
-    console.log('close >>>>>>>>>>>>', this._messageResolvers)
+    console.log('Closing! Waiting for promises...')
     let promises = Object.keys(this._messageResolvers).map(k => 
       this._messageResolvers[k].promise
     )
-    console.log(promises)
     Promise.all(promises)
       .then(blah => {
+        console.log('All messages resolved!')
         return this._connectionPromise
       })
       .then(connection => {
-        console.log('sending close!')
+        console.log('Final close!')
         connection.close()
         this._closed = true
+        
       })
   }
 

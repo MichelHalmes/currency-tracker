@@ -12,7 +12,8 @@
   "dependencies": {
     "request": "^2.81.0",
     "request-promise": "^4.2.1",
-    "websocket": "^1.0.24"
+    "websocket": "^1.0.24",
+    "xml-parser": "^1.2.1"
   },
   "devDependencies": {
     "babel-cli": "^6.24.1",
