@@ -22,7 +22,7 @@ var eur_zar_p = rp(FINANCE_URL, {json: true})
     console.log("Current X-rate: ", eur_zar)
     return eur_zar
   })
-  
+
   const SANPARKS_URL = 'https://www.sanparks.org/parks/garden_route/camps/storms_river/tourism/availability_dates.php'
   const OTTER_PARAMS = {
     only_trails: 'otter',
@@ -34,8 +34,8 @@ var eur_zar_p = rp(FINANCE_URL, {json: true})
     id: 396,
     action: 'submit'
   }
-  
-  var request_url = SANPARKS_URL + '?' 
+
+  var request_url = SANPARKS_URL + '?'
   request_url+= Object.keys(OTTER_PARAMS).map(k => `${k}=${OTTER_PARAMS[k]}`).join('&')
   console.log(request_url)
   var otter_p = rp(request_url, {json: true})
@@ -69,9 +69,9 @@ var eur_zar_p = rp(FINANCE_URL, {json: true})
           .filter(e => e.name == 'div')[0]
           .children
           .filter(e => e.name == 'section')[1]
-          .children    
+          .children
       // console.log(availability_dom)
-      
+
       var uploaded_dates = availability_dom
           .filter(e => e.name == 'form' && e.attribs.id == 'fromToAvailabilityCheck')[0]
           .children
@@ -82,7 +82,7 @@ var eur_zar_p = rp(FINANCE_URL, {json: true})
           .filter(e => e.name == 'option')
           .map(e => e.attribs.value)
       // console.log(uploaded_dates)
-      
+
       var available_spots = availability_dom
           .filter(e => e.name == 'div' && e.attribs.id == 'results')[0]
           .children
@@ -95,35 +95,35 @@ var eur_zar_p = rp(FINANCE_URL, {json: true})
           .filter(e => e.name == 'tr')
           .map(e => ({date: e.children[0].children, nb_spots: e.children[2].children}))
           .filter(o => o.nb_spots && o.nb_spots.length)
-          .map(o => ({date: o.date[0].data, nb_spots: o.nb_spots[0].data}))      
+          .map(o => ({date: o.date[0].data, nb_spots: o.nb_spots[0].data}))
       // console.log(available_spots)
-      
+
       return {uploaded_dates, available_spots}
     })
-  
-  
-const ALERT_EUR_ZAR_ABOVE = 16.0
+
+
+const ALERT_EUR_ZAR_ABOVE = 16.5
 const MIN_SPOTS_AVAIL = 4
-const IGNORE_MONTHS = ['may', 'june', 'july', 'august', 'september']
-  
+const IGNORE_MONTHS = ['january', 'may', 'june', 'july', 'august', 'september']
+
 Promise.all([eur_zar_p, otter_p])
   .then(results => {
     let slack = new SlackClient()
     const MICHEL_CHNL = process.env.MICHEL_CHANNEL
-    const LOG_CHNL = process.env.MICHEL_CHANNEL //TODO
-    
+    const LOG_CHNL = process.env.LOG_CHANNEL //TODO
+
     var eur_zar = results[0]
     var channel = eur_zar > ALERT_EUR_ZAR_ABOVE ? MICHEL_CHNL : LOG_CHNL
     slack.sendSlackMessage(`Current rate is ${eur_zar.toFixed(2)} ZAR/EUR`, channel)
-    
+
     var otter_avail = results[1]
     var last_date = otter_avail.uploaded_dates
-                        .reduce((acc, curr) => curr > acc ? curr : acc, '')  
+                        .reduce((acc, curr) => curr > acc ? curr : acc, '')
     channel = last_date > OTTER_PARAMS.to_date ? MICHEL_CHNL : LOG_CHNL
     slack.sendSlackMessage(`Otter-dates uploaded until: ${last_date}`, channel)
     var interesting_spots = otter_avail.available_spots
                         .filter(s => (
-                          s.nb_spots >= MIN_SPOTS_AVAIL && 
+                          s.nb_spots >= MIN_SPOTS_AVAIL &&
                           IGNORE_MONTHS.indexOf(s.date.substr(3, s.date.length-8).toLowerCase()) == -1
                         ))
     if (interesting_spots.length) {
@@ -132,8 +132,8 @@ Promise.all([eur_zar_p, otter_p])
       slack.sendSlackMessage(message, MICHEL_CHNL)
     } else {
       slack.sendSlackMessage(`No interesting otter-spots available :-(`, LOG_CHNL)
-    }      
-    
+    }
+
     slack.close()
 
   })
