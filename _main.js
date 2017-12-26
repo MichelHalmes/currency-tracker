@@ -105,12 +105,13 @@ var eur_zar_p = rp(FINANCE_URL, {json: true})
 const ALERT_EUR_ZAR_ABOVE = 16.5
 const MIN_SPOTS_AVAIL = 4
 const IGNORE_MONTHS = ['january', 'may', 'june', 'july', 'august', 'september']
+const IGNORE_DATES =['07 february 2018']
 
 Promise.all([eur_zar_p, otter_p])
   .then(results => {
     let slack = new SlackClient()
     const MICHEL_CHNL = process.env.MICHEL_CHANNEL
-    const LOG_CHNL = process.env.LOG_CHANNEL //TODO
+    const LOG_CHNL = process.env.LOG_CHANNEL
 
     var eur_zar = results[0]
     var channel = eur_zar > ALERT_EUR_ZAR_ABOVE ? MICHEL_CHNL : LOG_CHNL
@@ -124,8 +125,10 @@ Promise.all([eur_zar_p, otter_p])
     var interesting_spots = otter_avail.available_spots
                         .filter(s => (
                           s.nb_spots >= MIN_SPOTS_AVAIL &&
-                          IGNORE_MONTHS.indexOf(s.date.substr(3, s.date.length-8).toLowerCase()) == -1
+                          IGNORE_MONTHS.indexOf(s.date.substr(3, s.date.length-8).toLowerCase()) == -1 &&
+                          IGNORE_DATES.indexOf(s.date.toLowerCase()) == -1
                         ))
+
     if (interesting_spots.length) {
       var message = `Interesting spots available:\n`
       message += interesting_spots.map(s => ` * ${s.date}: ${s.nb_spots}`).join('\n')
